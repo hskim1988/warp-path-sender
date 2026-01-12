@@ -1,0 +1,44 @@
+{
+  "name": "warp-path-sender",
+  "displayName": "Warp Path Sender",
+  "description": "Send active file path to Warp terminal with Opt+K",
+  "version": "1.0.0",
+  "publisher": "hskim",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:warp-path-sender.sendToWarp"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "warp-path-sender.sendToWarp",
+        "title": "Send file path to Warp Claude Code"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "warp-path-sender.sendToWarp",
+        "key": "alt+k",
+        "mac": "alt+k",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  }
+}
