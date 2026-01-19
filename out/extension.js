@@ -38,45 +38,77 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const child_process_1 = require("child_process");
 const path = __importStar(require("path"));
+async function sendToWarp(textToSend) {
+    await vscode.env.clipboard.writeText(textToSend);
+    const appleScript = `
+        tell application "Warp" to activate
+        delay 0.2
+        tell application "System Events"
+            tell process "Warp"
+                click menu item "Paste" of menu "Edit" of menu bar 1
+            end tell
+        end tell
+    `;
+    (0, child_process_1.exec)(`osascript -e '${appleScript.replace(/'/g, "\\'").replace(/\n/g, "' -e '")}'`, (error) => {
+        if (error) {
+            vscode.window.showErrorMessage(`Failed to send to Warp: ${error.message}`);
+            return;
+        }
+        vscode.window.showInformationMessage(`Sent to Warp: ${textToSend}`);
+    });
+}
+function getRelativePath(editor) {
+    const filePath = editor.document.uri.fsPath;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    return workspaceFolder
+        ? path.relative(workspaceFolder.uri.fsPath, filePath)
+        : path.basename(filePath);
+}
 function activate(context) {
     console.log('Warp Path Sender is now active!');
-    const disposable = vscode.commands.registerCommand('warp-path-sender.sendToWarp', async () => {
+    // 기존 커맨드: 파일 경로만 전송
+    const sendPathCommand = vscode.commands.registerCommand('warp-path-sender.sendToWarp', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showWarningMessage('No active editor found');
             return;
         }
-        // 활성 파일의 절대 경로 가져오기
-        const filePath = editor.document.uri.fsPath;
-        // workspace 기준 상대 경로 계산
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        const relativePath = workspaceFolder
-            ? path.relative(workspaceFolder.uri.fsPath, filePath)
-            : path.basename(filePath);
-        // @상대경로 형식으로 텍스트 생성
+        const relativePath = getRelativePath(editor);
         const textToSend = `@${relativePath}`;
         try {
-            // 클립보드에 복사
-            await vscode.env.clipboard.writeText(textToSend);
-            // AppleScript로 Warp 활성화 후 붙여넣기
-            const appleScript = `
-                tell application "Warp" to activate
-                delay 0.3
-                tell application "System Events" to keystroke "v" using command down
-            `;
-            (0, child_process_1.exec)(`osascript -e '${appleScript.replace(/'/g, "\\'").replace(/\n/g, "' -e '")}'`, (error) => {
-                if (error) {
-                    vscode.window.showErrorMessage(`Failed to send to Warp: ${error.message}`);
-                    return;
-                }
-                vscode.window.showInformationMessage(`Sent to Warp: ${textToSend}`);
-            });
+            await sendToWarp(textToSend);
         }
         catch (error) {
             vscode.window.showErrorMessage(`Error: ${error}`);
         }
     });
-    context.subscriptions.push(disposable);
+    // 새 커맨드: 파일 경로 + 라인 범위 전송
+    const sendPathWithLineCommand = vscode.commands.registerCommand('warp-path-sender.sendToWarpWithLine', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showWarningMessage('No active editor found');
+            return;
+        }
+        const relativePath = getRelativePath(editor);
+        const selection = editor.selection;
+        let textToSend;
+        if (!selection.isEmpty) {
+            const startLine = selection.start.line + 1;
+            const endLine = selection.end.line + 1;
+            const lineRange = startLine === endLine ? `#L${startLine}` : `#L${startLine}-${endLine}`;
+            textToSend = `@${relativePath}${lineRange}`;
+        }
+        else {
+            textToSend = `@${relativePath}`;
+        }
+        try {
+            await sendToWarp(textToSend);
+        }
+        catch (error) {
+            vscode.window.showErrorMessage(`Error: ${error}`);
+        }
+    });
+    context.subscriptions.push(sendPathCommand, sendPathWithLineCommand);
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map
